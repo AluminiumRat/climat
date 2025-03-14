@@ -8,18 +8,11 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+#include "common.hpp"
+#include "state.hpp"
+
 //-----------------------------------------------------------------------------------
 //State
-
-enum ErrorCode
-{
-  NO_ERROR = 0,
-  TEMPERATURE_SENSORS_NOT_FOUND = 1,
-  INSIDE_TEMPERATURE_SENSOR_ERROR = 2,
-  OUTSIDE_TEMPERATURE_SENSOR_ERROR = 3,
-  SERVO_ERROR = 4
-};
-ErrorCode errorCode = NO_ERROR;
 
 #define MIN_POWER 0
 #define MAX_POWER 100
@@ -188,20 +181,20 @@ void initTemperatureSensors()
   if(sensorsCount != 2)
   {
     //Serial.println("ERROR: Sensors count is not 2");
-    errorCode = TEMPERATURE_SENSORS_NOT_FOUND;
+    setError(TEMPERATURE_SENSORS_NOT_FOUND);
     return;
   }
 
   if (!temperatureSensors.getAddress(insideThermometer, 0))
   {
     //Serial.println("Unable to find address for inside termometer");
-    errorCode = INSIDE_TEMPERATURE_SENSOR_ERROR;
+    setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
     return;
   }
   if (!temperatureSensors.getAddress(outsideThermometer, 1))
   {
     //Serial.println("Unable to find address for outside termomenter");
-    errorCode = OUTSIDE_TEMPERATURE_SENSOR_ERROR;
+    setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
     return;
   }
 
@@ -210,7 +203,7 @@ void initTemperatureSensors()
 
 void updateTemperatures()
 {
-  if(errorCode != NO_ERROR) return;
+  if(getError() != NO_ERROR) return;
 
   if(temperatureMeasureFinishTime == 0)
   {
@@ -229,7 +222,7 @@ void updateTemperatures()
         //Serial.println("ERROR: Inside thermometer is disconnected");
         insideTemperature = NO_TEMPERATURE;
         outsideTemperature = NO_TEMPERATURE;
-        errorCode = INSIDE_TEMPERATURE_SENSOR_ERROR;
+        setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
       }
 
       outsideTemperature = temperatureSensors.getTempC(outsideThermometer);
@@ -238,7 +231,7 @@ void updateTemperatures()
         //Serial.println("ERROR: Outside thermometer is disconnected");
         insideTemperature = NO_TEMPERATURE;
         outsideTemperature = NO_TEMPERATURE;
-        errorCode = OUTSIDE_TEMPERATURE_SENSOR_ERROR;
+        setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
       }      
     }
   }
@@ -258,7 +251,7 @@ void initServo()
   if (valveServo.attach(SERVO_PIN) == INVALID_SERVO)
   {
     //Serial.println("Unable to init servo");
-    errorCode = INVALID_SERVO;
+    setError(SERVO_ERROR);
     return;
   }
 
@@ -267,7 +260,7 @@ void initServo()
 
 void updateServo()
 {
-  if(errorCode != NO_ERROR) return;
+  if(getError() != NO_ERROR) return;
   if(currentPower > desiredPower) currentPower--;
   if(currentPower < desiredPower) currentPower++;
   int servoValue = map(currentPower, MIN_POWER, MAX_POWER, SERVO_MAX_VALUE, SERVO_MIN_VALUE);
@@ -350,7 +343,7 @@ void printError()
   display.setTextSize(2, 3);
   display.setCursor(5, 8);
 
-  switch(errorCode)
+  switch(getError())
   {
   case NO_ERROR:
     break;
@@ -363,12 +356,12 @@ void printError()
   case OUTSIDE_TEMPERATURE_SENSOR_ERROR:
     display.print("ERR O_TEM");
     break;
-  case INVALID_SERVO:
+  case SERVO_ERROR:
     display.print("ERR SERVO");
     break;
   default:
     display.print("ERROR: ");
-    display.print(errorCode);
+    display.print(getError());
   }
 }
 
@@ -453,7 +446,7 @@ void printState()
     return;
   }
 
-  if(errorCode != NO_ERROR)
+  if(getError() != NO_ERROR)
   {
     printError();
     return;
@@ -511,7 +504,7 @@ void updateByOutsideDesiredDelta()
   }
 
   int i = 1;
-  for(; i < powerTable - 1; i++)
+  for(; i < powerTableSize - 1; i++)
   {
     if(powerTable[i].deltaTemp > delta) break;
   }
@@ -535,7 +528,7 @@ void correctByInsideDesiredDelta()
 
 void updateRegulator()
 {
-  if(errorCode != NO_ERROR) return;
+  if(getError() != NO_ERROR) return;
   if(regulatorMode != MODE_TEMPERATURE) return;
   if(insideTemperature == NO_TEMPERATURE) return;
   if(outsideTemperature == NO_TEMPERATURE) return;
@@ -597,7 +590,7 @@ void loop()
   updateServo();
   if((stepIndex % SCREEN_UPDATE_RATE) == 0) updateScreen();
 
-  if(errorCode == NO_ERROR) wdt_reset();
+  if(getError() == NO_ERROR) wdt_reset();
   delay(STEP_DELAY_TIME);
   stepIndex++;
 }
