@@ -1,6 +1,7 @@
 #include "OneWire.h"
 #include "DallasTemperature.h"
 
+#include "common.hpp"
 #include "error.hpp"
 #include "sensors.hpp"
 

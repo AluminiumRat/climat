@@ -1,46 +1,12 @@
 #include "avr/wdt.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1306.h"
-#include "Servo.h"
 #include "Wire.h"
 
 #include "common.hpp"
 #include "error.hpp"
 #include "sensors.hpp"
 #include "state.hpp"
-
-//-----------------------------------------------------------------------------------
-//Servo
-#define SERVO_PIN 11
-#define SERVO_MIN_VALUE 0
-#define SERVO_MAX_VALUE 110
-Servo valveServo;
-
-int currentPower = MIN_POWER;
-
-void initServo()
-{
-  currentPower = getDesiredPower();
-  //Serial.println("Initializing servo...");
-
-  if (valveServo.attach(SERVO_PIN) == INVALID_SERVO)
-  {
-    //Serial.println("Unable to init servo");
-    setError(SERVO_ERROR);
-    return;
-  }
-
-  //Serial.println("Servo has been initialized.");
-}
-
-void updateServo()
-{
-  if(getError() != NO_ERROR) return;
-  if(currentPower > getDesiredPower()) currentPower--;
-  if(currentPower < getDesiredPower()) currentPower++;
-  int servoValue = map(currentPower, MIN_POWER, MAX_POWER, SERVO_MAX_VALUE, SERVO_MIN_VALUE);
-  valveServo.write(servoValue);
-}
 
 //-----------------------------------------------------------------------------------
 //Encoder
