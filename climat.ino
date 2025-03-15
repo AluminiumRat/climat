@@ -11,14 +11,9 @@
 //-----------------------------------------------------------------------------------
 //Main
 #define STEP_DELAY_TIME 100
-#define SCREEN_UPDATE_RATE 5
-int stepIndex = 0;
 
 void setup()
 {
-  //Serial.begin(9600);
-  //Serial.println("Starting...");
-
   initState();
   initDisplay();
   initSensors();
@@ -26,8 +21,6 @@ void setup()
   initEncoder();
 
   wdt_enable(WDTO_8S);
-
-  //Serial.println("Started");
 }
 
 void loop()
@@ -36,9 +29,8 @@ void loop()
   updateState();
   updateRegulator();
   updateServo();
-  if((stepIndex % SCREEN_UPDATE_RATE) == 0) updateDisplay();
+  updateDisplay();
 
   if(getError() == NO_ERROR) wdt_reset();
   delay(STEP_DELAY_TIME);
-  stepIndex++;
 }
