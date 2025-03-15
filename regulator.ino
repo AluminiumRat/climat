@@ -1,4 +1,3 @@
-#include "common.hpp"
 #include "error.hpp"
 #include "state.hpp"
 

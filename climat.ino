@@ -1,6 +1,5 @@
 #include "avr/wdt.h"
 
-#include "common.hpp"
 #include "display.hpp"
 #include "encoder.hpp"
 #include "error.hpp"
@@ -8,10 +7,11 @@
 #include "sensors.hpp"
 #include "state.hpp"
 
-//-----------------------------------------------------------------------------------
-//Main
+// Задержка в основном цикле программы
 #define STEP_DELAY_TIME 100
 
+//-----------------------------------------------------------------------------------
+//Main
 void setup()
 {
     initState();

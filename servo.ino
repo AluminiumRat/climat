@@ -1,8 +1,12 @@
 #include "Servo.h"
 
-#include "common.hpp"
 #include "error.hpp"
+#include "pins.hpp"
 #include "servo.hpp"
+
+// Максимальный и минимальный углы поворота сервомашинки
+#define SERVO_MIN_VALUE 0
+#define SERVO_MAX_VALUE 110
 
 static Servo valveServo;
 

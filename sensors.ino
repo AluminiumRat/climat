@@ -1,9 +1,12 @@
 #include "OneWire.h"
 #include "DallasTemperature.h"
 
-#include "common.hpp"
 #include "error.hpp"
+#include "pins.hpp"
 #include "sensors.hpp"
+
+// Интервал времени между измерениями температуры. Миллисекунды
+#define TEMPERATURE_MEASURE_TIME 5000
 
 static OneWire temperatureSensorsWire(DATA_SENSOR_PIN);
 static DallasTemperature temperatureSensors(&temperatureSensorsWire);
