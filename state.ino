@@ -1,13 +1,125 @@
+#include "EEPROM.h"
+
+#include "error.hpp"
 #include "state.hpp"
 
-static ErrorCode errorCode = NO_ERROR;
+#define EEPROM_STATE_HEADER 11335
+#define STATE_ADDRESS 0
 
-ErrorCode getError()
+static RegulatorMode regulatorMode = MODE_POWER;
+
+static volatile int desiredPower = MIN_POWER;
+static volatile float desiredTemperature = 20;
+
+static volatile unsigned long showDesiredTime = 0;
+static volatile unsigned long showModeTime = 0;
+static volatile unsigned long saveTime = 0;
+
+struct StateDataBlock
 {
-    return errorCode;
+    int header;
+    int desiredPower;
+    float desiredTemperature;
+    RegulatorMode regulatorMode;
+};
+
+void initState()
+{
+    StateDataBlock dataBlock;
+    EEPROM.get(STATE_ADDRESS, dataBlock);
+
+    if(dataBlock.header != EEPROM_STATE_HEADER) return;
+
+    desiredPower = dataBlock.desiredPower;
+    currentPower = desiredPower;
+    desiredTemperature = dataBlock.desiredTemperature;
+    regulatorMode = dataBlock.regulatorMode;
 }
 
-void setError(ErrorCode newValue)
+void updateState()
 {
-    errorCode = newValue;
+    if(saveTime != 0 && millis() >= saveTime)
+    {
+        StateDataBlock dataBlock;
+        dataBlock.header = EEPROM_STATE_HEADER;
+        dataBlock.desiredPower = desiredPower;
+        dataBlock.desiredTemperature = desiredTemperature;
+        dataBlock.regulatorMode = regulatorMode;
+        EEPROM.put(STATE_ADDRESS, dataBlock);
+
+        saveTime = 0;
+    }
+
+    if(millis() >= showDesiredTime) showDesiredTime = 0;
+    if(millis() >= showModeTime) showModeTime = 0;
+}
+
+void sheduleSaveState()
+{
+    saveTime = millis() + SAVE_INTERVAL;
+}
+
+RegulatorMode getRegulatorMode()
+{
+    return regulatorMode;
+}
+
+void changeRegulatorMode()
+{
+    if(regulatorMode == MODE_POWER)
+    {
+        regulatorMode = MODE_TEMPERATURE;
+    }
+    else
+    {
+        regulatorMode = MODE_POWER;
+        desiredPower = desiredPower / 5 * 5;
+    }
+    showModeTime = millis() + SHOW_MODE_INTERVAL;
+    sheduleSaveState();
+}
+
+bool needShowDesired()
+{
+    return showDesiredTime != 0;
+}
+
+void setShowDesired()
+{
+    showDesiredTime = millis() + SHOW_DESIRED_INTERVAL;
+}
+
+bool needShowRegulatorMode()
+{
+    return showModeTime != 0;
+}
+
+int getDesiredPower()
+{
+    return desiredPower;
+}
+
+void setDesiredPower(int newValue)
+{
+    setShowDesired();
+
+    if(newValue < MIN_POWER) newValue = MIN_POWER;
+    if(newValue > MAX_POWER) newValue = MAX_POWER;
+
+    desiredPower = newValue;
+}
+
+int getDesiredTemperature()
+{
+    return desiredTemperature;
+}
+
+void setDesiredTemperature(int newValue)
+{
+    setShowDesired();
+
+    if(newValue < MIN_DESIRED_TEMPERATURE) newValue = MIN_DESIRED_TEMPERATURE;
+    if(newValue > MAX_DESIRED_TEMPERATURE) newValue = MAX_DESIRED_TEMPERATURE;
+
+    desiredTemperature = newValue;
 }

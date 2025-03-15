@@ -1,15 +1,68 @@
 #pragma once
+// Управление глобальным состоянием климат-контроля, его сохранение и загрузка
+// из EEPROM
+// Сюда входит режим регулирования, желанная температура и мощность печки
+// Все функции кроме initState и updateState могут быть вызваны из прерываний
 
-#include "common.hpp"
+// Диапазон, в котором можно выставить степень открытия крана печки(мощность)
+#define MIN_POWER 0
+#define MAX_POWER 100
 
-using ErrorCode = enum
+// Диапазон, в котором можно выставить желанную температуру
+#define MIN_DESIRED_TEMPERATURE 0
+#define MAX_DESIRED_TEMPERATURE 99
+
+// Время после поворота ручки, в течении которого будет показываться желанная
+// температура или мощность печки. Миллисекунды.
+#define SHOW_DESIRED_INTERVAL 3000
+// Время после нажатия на ручку, в течении которого будет показываться режим
+// регулирования. Миллисекунды.
+#define SHOW_MODE_INTERVAL 1000
+// Время после вызова sheduleSaveState, через которое произойдет сохранение
+// состояния. Миллисекунды
+#define SAVE_INTERVAL 2000
+
+// Режим регулирования температуры
+enum RegulatorMode
 {
-  NO_ERROR = 0,
-  TEMPERATURE_SENSORS_NOT_FOUND = 1,
-  INSIDE_TEMPERATURE_SENSOR_ERROR = 2,
-  OUTSIDE_TEMPERATURE_SENSOR_ERROR = 3,
-  SERVO_ERROR = 4
+    MODE_POWER = 0,         // Крутилкой напрямую выставляем мощность печки
+    MODE_TEMPERATURE = 1    // Выставляем желанную температуру, а регулятор
+                            // поддерживает её, настраивая мощность печки
 };
 
-ErrorCode getError();
-void setError(ErrorCode newValue);
+// Загрузить состояние или инициализировать его дефлтом.
+// Вызывается один раз на старте
+void initState();
+// Обновить тайминги, сохранить состояние по необходимости
+// Вызывается переодически из основного цикла программы
+void updateState();
+
+// Через SAVE_INTERVAL миллисекунд после вызова этой функции
+// состояние климат-контроля будет сохранено.
+// Сохранение не происходит моментально. Нужно для уменьшения количества
+// записей в EEPROM
+void sheduleSaveState();
+
+// Если возвращает true, то на дисплее необходимо показывать желанную
+// температуру или мощность отопителя в зависимости от режима.
+// Включается после настройки с помощью крутилки. Выключается
+// автоматом через SHOW_DESIRED_INTERVAL миллисекунд
+bool needShowDesired();
+// Если возвращает true, то на дисплее надо показывать текущий
+// режим регулирования.
+// Включается после нажатия на крутилку. Выключается
+// автоматически через SHOW_MODE_INTERVAL миллисекунд
+bool needShowRegulatorMode();
+
+// Режим регулирования. Меняется при нажатии на крутилку.
+RegulatorMode getRegulatorMode();
+void changeRegulatorMode();
+
+// Мощность печки. Меняется крутилкой в режиме MODE_POWER или через
+// авторегулирование в режиме MODE_TEMPERATURE
+int getDesiredPower();
+void setDesiredPower(int newValue);
+
+// Желанная температура. Меняется крутилкой в режиме MODE_TEMPERATURE
+int getDesiredTemperature();
+void setDesiredTemperature(int newValue);
