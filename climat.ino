@@ -1,167 +1,11 @@
 #include "avr/wdt.h"
-#include "Adafruit_GFX.h"
-#include "Adafruit_SSD1306.h"
-#include "Wire.h"
 
 #include "common.hpp"
+#include "display.hpp"
 #include "encoder.hpp"
 #include "error.hpp"
 #include "sensors.hpp"
 #include "state.hpp"
-
-//-----------------------------------------------------------------------------------
-//Display
-Adafruit_SSD1306 display(128, 32, &Wire, 4);
-bool displayIsInitialized = false;
-
-void initDisplay()
-{
-  //Serial.println("Initializing display...");
-
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  {
-    //Serial.println("WARNING: Unable to initialize display.");
-    return;
-  }
-
-  display.setTextColor(SSD1306_WHITE);
-
-  displayIsInitialized = true;
-  //Serial.println("Display has been initialized.");
-}
-
-void printError()
-{
-  display.setTextSize(2, 3);
-  display.setCursor(5, 8);
-
-  switch(getError())
-  {
-  case NO_ERROR:
-    break;
-  case TEMPERATURE_SENSORS_NOT_FOUND:
-    display.print("NO SENSORS");
-    break;
-  case INSIDE_TEMPERATURE_SENSOR_ERROR:
-    display.print("ERR I_TEM");
-    break;
-  case OUTSIDE_TEMPERATURE_SENSOR_ERROR:
-    display.print("ERR O_TEM");
-    break;
-  case SERVO_ERROR:
-    display.print("ERR SERVO");
-    break;
-  default:
-    display.print("ERROR: ");
-    display.print(getError());
-  }
-}
-
-void printRegulatorMode()
-{
-  display.setTextSize(3, 4);
-  display.setCursor(5, 5);
-
-  if(getRegulatorMode() == MODE_POWER) display.print("MANUAL");
-  else display.print("AUTO");
-}
-
-void showDesired()
-{
-  display.setTextSize(2, 3);
-  display.setCursor(5, 8);
-
-  if(getRegulatorMode() == MODE_POWER)
-  {
-    display.print("Power ");
-    display.print(getDesiredPower());
-    display.print("%");
-  }
-  else
-  {
-    display.print("DesT ");
-    display.print(getDesiredTemperature());
-    display.print("C");
-  }
-}
-
-void printCommonInfo()
-{
-  display.setTextSize(2, 3);
-  display.setCursor(8, 8);
-
-  // Mode. Blinking for work indication
-  unsigned long currentTime = millis();
-  if((currentTime / 1000) % 2 == 0)
-  {
-    // Hide mode each even second.
-    display.print(" ");
-  }
-  else
-  {
-    if(getRegulatorMode() == MODE_POWER) display.print("m");
-    else display.print("a");
-  }
-
-  // Display current inside temperature
-  int showedTemperature = round(getInsideTemperature());
-  if(showedTemperature >= 0) display.print(" ");
-  display.print(showedTemperature);
-  display.print("C");
-
-  // Display current outside temperature
-  display.setTextSize(2, 2);
-  display.setCursor(80, 0);
-  display.print(round(getOutsideTemperature()));
-  display.print("C");
-
-  // Display current power
-  display.setTextSize(2, 2);
-  display.setCursor(80, 16);
-  display.print(getDesiredPower());
-  display.print("%");  
-}
-
-void printState()
-{
-  if(needShowRegulatorMode())
-  {
-    printRegulatorMode();
-    return;
-  }
-
-  if(needShowDesired())
-  {
-    showDesired();
-    return;
-  }
-
-  if(getError() != NO_ERROR)
-  {
-    printError();
-    return;
-  }
-
-  // Initialization. No errors but no meassures.
-  if(getInsideTemperature() == NO_TEMPERATURE)
-  {
-    printRegulatorMode();
-    return;
-  }
-
-  printCommonInfo();
-}
-
-void updateScreen()
-{
-  if(!displayIsInitialized) return;
-
-  display.clearDisplay();
-
-  printState();
-
-  display.display();
-}
 
 //-----------------------------------------------------------------------------------
 //Auto regulator
@@ -253,7 +97,7 @@ void loop()
   updateState();
   updateRegulator();
   updateServo();
-  if((stepIndex % SCREEN_UPDATE_RATE) == 0) updateScreen();
+  if((stepIndex % SCREEN_UPDATE_RATE) == 0) updateDisplay();
 
   if(getError() == NO_ERROR) wdt_reset();
   delay(STEP_DELAY_TIME);
