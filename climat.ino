@@ -4,104 +4,10 @@
 #include "Servo.h"
 #include "Wire.h"
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
-
 #include "common.hpp"
 #include "error.hpp"
+#include "sensors.hpp"
 #include "state.hpp"
-
-//-----------------------------------------------------------------------------------
-// Temp sensors
-#define DATA_SENSOR_PIN 5
-#define VCC_SENSOR_PIN 7
-#define GND_SENSOR_PIN 6
-OneWire temperatureSensorsWire(DATA_SENSOR_PIN);
-DallasTemperature temperatureSensors(&temperatureSensorsWire);
-
-DeviceAddress insideThermometer;
-DeviceAddress outsideThermometer;
-
-#define TEMPERATURE_MEASURE_TIME 1500
-volatile unsigned long temperatureMeasureFinishTime = 0;
-
-#define NO_TEMPERATURE -300
-float insideTemperature = NO_TEMPERATURE;
-float outsideTemperature = NO_TEMPERATURE;
-
-void initTemperatureSensors()
-{
-  //Serial.println("Initializing temperature sensors...");
-  
-  // GND power pin
-  pinMode(GND_SENSOR_PIN, OUTPUT);
-  digitalWrite(GND_SENSOR_PIN, LOW);
-
-  // +5V power pin
-  pinMode(VCC_SENSOR_PIN, OUTPUT);
-  digitalWrite(VCC_SENSOR_PIN, HIGH);
-
-  temperatureSensors.begin();
-
-  int sensorsCount = temperatureSensors.getDeviceCount();
-  if(sensorsCount != 2)
-  {
-    //Serial.println("ERROR: Sensors count is not 2");
-    setError(TEMPERATURE_SENSORS_NOT_FOUND);
-    return;
-  }
-
-  if (!temperatureSensors.getAddress(insideThermometer, 0))
-  {
-    //Serial.println("Unable to find address for inside termometer");
-    setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
-    return;
-  }
-  if (!temperatureSensors.getAddress(outsideThermometer, 1))
-  {
-    //Serial.println("Unable to find address for outside termomenter");
-    setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
-    return;
-  }
-
-  //Serial.println("The themperature sensors have been initialized.");
-}
-
-void updateTemperatures()
-{
-  if(getError() != NO_ERROR) return;
-
-  if(temperatureMeasureFinishTime == 0)
-  {
-    temperatureSensors.requestTemperatures(); // Send the command to get temperatures
-    temperatureMeasureFinishTime = millis() + TEMPERATURE_MEASURE_TIME;
-  }
-  else
-  {
-    if(millis() >= temperatureMeasureFinishTime)
-    {
-      temperatureMeasureFinishTime = 0;
-
-      insideTemperature = temperatureSensors.getTempC(insideThermometer);
-      if(insideTemperature == DEVICE_DISCONNECTED_C)
-      {
-        //Serial.println("ERROR: Inside thermometer is disconnected");
-        insideTemperature = NO_TEMPERATURE;
-        outsideTemperature = NO_TEMPERATURE;
-        setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
-      }
-
-      outsideTemperature = temperatureSensors.getTempC(outsideThermometer);
-      if(outsideTemperature == DEVICE_DISCONNECTED_C)
-      {
-        //Serial.println("ERROR: Outside thermometer is disconnected");
-        insideTemperature = NO_TEMPERATURE;
-        outsideTemperature = NO_TEMPERATURE;
-        setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
-      }      
-    }
-  }
-}
 
 //-----------------------------------------------------------------------------------
 //Servo
@@ -283,7 +189,7 @@ void printCommonInfo()
   }
 
   // Display current inside temperature
-  int showedTemperature = round(insideTemperature);
+  int showedTemperature = round(getInsideTemperature());
   if(showedTemperature >= 0) display.print(" ");
   display.print(showedTemperature);
   display.print("C");
@@ -291,7 +197,7 @@ void printCommonInfo()
   // Display current outside temperature
   display.setTextSize(2, 2);
   display.setCursor(80, 0);
-  display.print(round(outsideTemperature));
+  display.print(round(getOutsideTemperature()));
   display.print("C");
 
   // Display current power
@@ -322,7 +228,7 @@ void printState()
   }
 
   // Initialization. No errors but no meassures.
-  if(insideTemperature == NO_TEMPERATURE)
+  if(getInsideTemperature() == NO_TEMPERATURE)
   {
     printRegulatorMode();
     return;
@@ -359,7 +265,7 @@ const int powerTableSize = sizeof(powerTable) / sizeof(powerTable[0]);
 
 void updateByOutsideDesiredDelta()
 {
-  int delta = getDesiredTemperature() - outsideTemperature;
+  int delta = getDesiredTemperature() - getOutsideTemperature();
   if(delta <= powerTable[0].deltaTemp)
   {
     setDesiredPower(powerTable[0].power);
@@ -387,7 +293,7 @@ void updateByOutsideDesiredDelta()
 
 void correctByInsideDesiredDelta()
 {
-  float delta = getDesiredTemperature() - insideTemperature;
+  float delta = getDesiredTemperature() - getInsideTemperature();
   int deltaPower = MAX_POWER * (delta / PROPORTIONAL_REGULATOR_DIAPASON);
   setDesiredPower(getDesiredPower() + deltaPower);
 }
@@ -396,8 +302,8 @@ void updateRegulator()
 {
   if(getError() != NO_ERROR) return;
   if(getRegulatorMode() != MODE_TEMPERATURE) return;
-  if(insideTemperature == NO_TEMPERATURE) return;
-  if(outsideTemperature == NO_TEMPERATURE) return;
+  if(getInsideTemperature() == NO_TEMPERATURE) return;
+  if(getOutsideTemperature() == NO_TEMPERATURE) return;
 
   updateByOutsideDesiredDelta();
 
@@ -417,7 +323,7 @@ void setup()
 
   initState();
   initDisplay();
-  initTemperatureSensors();
+  initSensors();
   initServo();
   initEncoder();
 
@@ -428,7 +334,7 @@ void setup()
 
 void loop()
 {
-  updateTemperatures();
+  updateSensors();
   updateState();
   updateRegulator();
   updateServo();
