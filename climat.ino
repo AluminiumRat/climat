@@ -4,61 +4,10 @@
 #include "Wire.h"
 
 #include "common.hpp"
+#include "encoder.hpp"
 #include "error.hpp"
 #include "sensors.hpp"
 #include "state.hpp"
-
-//-----------------------------------------------------------------------------------
-//Encoder
-#define ENCODER_MAIN_PIN 2
-#define ENCODER_SECOND_PIN 4
-#define ENCODER_KEY_PIN 3
-#define POWER_STEP ((MAX_POWER - MIN_POWER) / 20)
-#define SUPRESSION_INTERVAL 1000
-
-volatile unsigned long lastModeChangeTime = 0;
-
-void updateEncoder()
-{
-  if(digitalRead(ENCODER_SECOND_PIN) == LOW)
-  {
-    if(getRegulatorMode() == MODE_POWER) setDesiredPower(getDesiredPower() + POWER_STEP);
-    else setDesiredTemperature(getDesiredTemperature() + 1);
-  }
-  else
-  {
-    if(getRegulatorMode() == MODE_POWER) setDesiredPower(getDesiredPower() - POWER_STEP);
-    else setDesiredTemperature(getDesiredTemperature() - 1);
-  }
-
-  sheduleSaveState();
-}
-
-void onEncoderPressed()
-{
-  unsigned long currentTime = millis();
-  if(currentTime > lastModeChangeTime + SUPRESSION_INTERVAL || currentTime < lastModeChangeTime)
-  {
-    changeRegulatorMode();
-    lastModeChangeTime = millis();
-  }
-}
-
-void initEncoder()
-{
-  //Serial.println("Initializing encoder...");
-
-  pinMode(ENCODER_MAIN_PIN, INPUT);
-  pinMode(ENCODER_SECOND_PIN, INPUT);
-  uint8_t interruptNumber = digitalPinToInterrupt(ENCODER_MAIN_PIN);
-  attachInterrupt(interruptNumber, &updateEncoder, FALLING);
-
-  pinMode(ENCODER_KEY_PIN, INPUT);
-  interruptNumber = digitalPinToInterrupt(ENCODER_KEY_PIN);
-  attachInterrupt(interruptNumber, &onEncoderPressed, FALLING);
-
-  //Serial.println("Encoder has been initialized.");
-}
 
 //-----------------------------------------------------------------------------------
 //Display
