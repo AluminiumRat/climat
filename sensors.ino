@@ -28,65 +28,67 @@ float getOutsideTemperature()
 
 void initSensors()
 {
-  // GND power pin
-  pinMode(GND_SENSOR_PIN, OUTPUT);
-  digitalWrite(GND_SENSOR_PIN, LOW);
+    // GND power pin
+    pinMode(GND_SENSOR_PIN, OUTPUT);
+    digitalWrite(GND_SENSOR_PIN, LOW);
 
-  // +5V power pin
-  pinMode(VCC_SENSOR_PIN, OUTPUT);
-  digitalWrite(VCC_SENSOR_PIN, HIGH);
+    // +5V power pin
+    pinMode(VCC_SENSOR_PIN, OUTPUT);
+    digitalWrite(VCC_SENSOR_PIN, HIGH);
 
-  temperatureSensors.begin();
+    temperatureSensors.begin();
 
-  int sensorsCount = temperatureSensors.getDeviceCount();
-  if(sensorsCount != 2)
-  {
-    setError(TEMPERATURE_SENSORS_NOT_FOUND);
-    return;
-  }
+    int sensorsCount = temperatureSensors.getDeviceCount();
+    if(sensorsCount != 2)
+    {
+        setError(TEMPERATURE_SENSORS_NOT_FOUND);
+        return;
+    }
 
-  if (!temperatureSensors.getAddress(insideThermometer, 0))
-  {
-    setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
-    return;
-  }
-  if (!temperatureSensors.getAddress(outsideThermometer, 1))
-  {
-    setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
-    return;
-  }
+    if (!temperatureSensors.getAddress(insideThermometer, 0))
+    {
+        setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
+        return;
+    }
+    if (!temperatureSensors.getAddress(outsideThermometer, 1))
+    {
+        setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
+        return;
+    }
 }
 
 void updateSensors()
 {
-  if(getError() != NO_ERROR) return;
+    if(getError() != NO_ERROR) return;
 
-  if(temperatureMeasureFinishTime == 0)
-  {
-    temperatureSensors.requestTemperatures();
-    temperatureMeasureFinishTime = millis() + TEMPERATURE_MEASURE_TIME;
-  }
-  else
-  {
-    if(millis() >= temperatureMeasureFinishTime)
+    if(temperatureMeasureFinishTime == 0)
     {
-      temperatureMeasureFinishTime = 0;
-
-      insideTemperature = temperatureSensors.getTempC(insideThermometer);
-      if(insideTemperature == DEVICE_DISCONNECTED_C)
-      {
-        insideTemperature = NO_TEMPERATURE;
-        outsideTemperature = NO_TEMPERATURE;
-        setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
-      }
-
-      outsideTemperature = temperatureSensors.getTempC(outsideThermometer);
-      if(outsideTemperature == DEVICE_DISCONNECTED_C)
-      {
-        insideTemperature = NO_TEMPERATURE;
-        outsideTemperature = NO_TEMPERATURE;
-        setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
-      }      
+        temperatureSensors.requestTemperatures();
+        temperatureMeasureFinishTime = millis() + TEMPERATURE_MEASURE_TIME;
     }
-  }
+    else
+    {
+        if(millis() >= temperatureMeasureFinishTime)
+        {
+            temperatureMeasureFinishTime = 0;
+
+            insideTemperature =
+                temperatureSensors.getTempC(insideThermometer);
+            if(insideTemperature == DEVICE_DISCONNECTED_C)
+            {
+                insideTemperature = NO_TEMPERATURE;
+                outsideTemperature = NO_TEMPERATURE;
+                setError(INSIDE_TEMPERATURE_SENSOR_ERROR);
+            }
+
+            outsideTemperature =
+                temperatureSensors.getTempC(outsideThermometer);
+            if(outsideTemperature == DEVICE_DISCONNECTED_C)
+            {
+                insideTemperature = NO_TEMPERATURE;
+                outsideTemperature = NO_TEMPERATURE;
+                setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
+            }      
+        }
+    }
 }

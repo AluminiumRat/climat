@@ -27,56 +27,55 @@ const int powerTableSize = sizeof(powerTable) / sizeof(powerTable[0]);
 // Первичное выставление мощности по температуре
 void updateByOutsideDesiredDelta()
 {
-  // Разница температур приточного воздуха и желанной температуры
-  int delta = getDesiredTemperature() - getOutsideTemperature();
-  
-  // Разница температур отрицательная, воздух греть не надо
-  if(delta <= powerTable[0].deltaTemp)
-  {
-    setDesiredPower(powerTable[0].power);
-    return;
-  }
+    // Разница температур приточного воздуха и желанной температуры
+    int delta = getDesiredTemperature() - getOutsideTemperature();
+    
+    // Разница температур отрицательная, воздух греть не надо
+    if(delta <= powerTable[0].deltaTemp)
+    {
+        setDesiredPower(powerTable[0].power);
+        return;
+    }
 
-  // Очень большая разница, выставляем мощность на максимум
-  if(delta >= powerTable[powerTableSize - 1].deltaTemp)
-  {
-    setDesiredPower(powerTable[powerTableSize - 1].power);
-    return;
-  }
+    // Очень большая разница, выставляем мощность на максимум
+    if(delta >= powerTable[powerTableSize - 1].deltaTemp)
+    {
+        setDesiredPower(powerTable[powerTableSize - 1].power);
+        return;
+    }
 
-  // Ищем в таблице 2 записи, между которыми находится
-  // текущая разница температур
-  int i = 1;
-  for(; i < powerTableSize - 1; i++)
-  {
-    if(powerTable[i].deltaTemp > delta) break;
-  }
+    // Ищем в таблице 2 записи, между которыми находится
+    // текущая разница температур
+    int i = 1;
+    for(; i < powerTableSize - 1; i++)
+    {
+        if(powerTable[i].deltaTemp > delta) break;
+    }
 
-  // Линейная интерполяция между двумя найденными температурами
-  setDesiredPower(map(delta,
-                      powerTable[i-1].deltaTemp,
-                      powerTable[i].deltaTemp,
-                      powerTable[i-1].power,
-                      powerTable[i].power));
+    // Линейная интерполяция между двумя найденными температурами
+    setDesiredPower(map(delta,
+                        powerTable[i-1].deltaTemp,
+                        powerTable[i].deltaTemp,
+                        powerTable[i-1].power,
+                        powerTable[i].power));
 }
 
 // Дополнительная пропорциональная коррекция по разнице салонной температуры
 // и желанной температуры
 void correctByInsideDesiredDelta()
 {
-  float delta = getDesiredTemperature() - getInsideTemperature();
-  int deltaPower = MAX_POWER * (delta / PROPORTIONAL_REGULATOR_DIAPASON);
-  setDesiredPower(getDesiredPower() + deltaPower);
+    float delta = getDesiredTemperature() - getInsideTemperature();
+    int deltaPower = MAX_POWER * (delta / PROPORTIONAL_REGULATOR_DIAPASON);
+    setDesiredPower(getDesiredPower() + deltaPower);
 }
 
 void updateRegulator()
 {
-  if(getError() != NO_ERROR) return;
-  if(getRegulatorMode() != MODE_TEMPERATURE) return;
-  if(getInsideTemperature() == NO_TEMPERATURE) return;
-  if(getOutsideTemperature() == NO_TEMPERATURE) return;
+    if(getError() != NO_ERROR) return;
+    if(getRegulatorMode() != MODE_TEMPERATURE) return;
+    if(getInsideTemperature() == NO_TEMPERATURE) return;
+    if(getOutsideTemperature() == NO_TEMPERATURE) return;
 
-  updateByOutsideDesiredDelta();
-
-  correctByInsideDesiredDelta();
+    updateByOutsideDesiredDelta();
+    correctByInsideDesiredDelta();
 }

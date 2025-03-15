@@ -14,23 +14,23 @@
 
 void setup()
 {
-  initState();
-  initDisplay();
-  initSensors();
-  initServo();
-  initEncoder();
+    initState();
+    initDisplay();
+    initSensors();
+    initServo();
+    initEncoder();
 
-  wdt_enable(WDTO_8S);
+    wdt_enable(WDTO_8S);
 }
 
 void loop()
 {
-  updateSensors();
-  updateState();
-  updateRegulator();
-  updateServo();
-  updateDisplay();
+    updateSensors();
+    updateState();
+    updateRegulator();
+    updateServo();
+    updateDisplay();
 
-  if(getError() == NO_ERROR) wdt_reset();
-  delay(STEP_DELAY_TIME);
+    if(getError() == NO_ERROR) wdt_reset();
+    delay(STEP_DELAY_TIME);
 }
