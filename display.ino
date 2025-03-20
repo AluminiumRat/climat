@@ -6,8 +6,12 @@
 #include "error.hpp"
 #include "state.hpp"
 
-static Adafruit_SSD1306 display(128, 32, &Wire, 4);
+static Adafruit_SSD1306 display(128, 64, &Wire, 4);
 static bool displayIsInitialized = false;
+
+// Время, оставшееся до перехода в обычный режим
+static volatile unsigned long showDesiredTime = 0;
+static volatile unsigned long showModeTime = 0;
 
 void initDisplay()
 {
@@ -20,10 +24,23 @@ void initDisplay()
     displayIsInitialized = true;
 }
 
+void setShowDesired()
+{
+    showDesiredTime = millis() + SHOW_DESIRED_INTERVAL;
+}
+
+void setShowMode()
+{
+    showModeTime = millis() + SHOW_MODE_INTERVAL;
+}
+
 void printError()
 {
+    // Ошибка моргает. Ничего не рисуем каждые 500мсек
+    if((millis() / 500) % 2 == 0) return;
+
     display.setTextSize(2, 3);
-    display.setCursor(5, 8);
+    display.setCursor(5, 22);
 
     switch(getError())
     {
@@ -52,83 +69,108 @@ void printError()
 void printRegulatorMode()
 {
     display.setTextSize(3, 4);
-    display.setCursor(5, 5);
 
-    if(getRegulatorMode() == MODE_POWER) display.print("MANUAL");
-    else display.print("AUTO");
+    if(getRegulatorMode() == MODE_POWER)
+    {
+        display.setCursor(14, 18);
+        display.print("MANUAL");
+    }
+    else
+    {
+        display.setCursor(32, 18);
+        display.print("AUTO");
+    }
 }
 
 // Мощность печки либо желанная температура в зависимости от режима
 // Отрисовка в течении некоторого времени после поворота крутилки
 void showDesired()
 {
-    display.setTextSize(2, 3);
-    display.setCursor(5, 8);
+    display.setTextSize(3, 4);
 
     if(getRegulatorMode() == MODE_POWER)
     {
-        display.print("Power ");
-        display.print(getDesiredPower());
+        // Выводим настроенную мощность печки. Выравнивание по центру
+        int value = getDesiredPower();
+        int position = 48;
+        if(value >= 10) position -= 9;
+        if(value >= 100) position -= 9;
+        display.setCursor(position, 18);
+        display.print(value);
         display.print("%");
     }
     else
     {
-        display.print("DesT ");
-        display.print(getDesiredTemperature());
-        display.print("C");
+        // Выводим настроенную температуру. Выравнивание по центру
+        int value = getDesiredTemperature();
+        int position = 39;
+        if(value < 0) position -= 9;
+        if(value <= -10) position -= 9;
+        if(value >= 10) position -= 9;
+        display.setCursor(position, 18);
+        display.print(value);
+        display.print("'C");
     }
 }
 
 // Режим отрисовки, когда нет ошибок и нет никаких изменений настроек
 void printCommonInfo()
 {
-    display.setTextSize(2, 3);
-    display.setCursor(8, 8);
-
-    // Моргающая буква - индикатор текущего режима
+    // Переключающаяся строка состояния
     unsigned long currentTime = millis();
-    if((currentTime / 1000) % 2 == 0)
+    if((currentTime / 3000) % 2 == 0)
     {
-        // Не выводим каждую четную секунду
-        display.print(" ");
+        // Индикатор текущего режима
+        display.setTextSize(2, 2);
+        display.setCursor(0, 48);    
+        if(getRegulatorMode() == MODE_POWER) display.print("Manual");
+        else
+        {
+            display.print("Auto ");
+            display.print(getDesiredTemperature());
+            display.print("'C");
+        }
     }
     else
     {
-        if(getRegulatorMode() == MODE_POWER) display.print("m");
-        else display.print("a");
+        // Текущая температура приточного воздуха
+        display.setTextSize(2, 2);
+        display.setCursor(0, 48);
+        display.print(round(getOutsideTemperature()));
+        display.print("'C");
+
+        // Текущая мощность печки
+        display.setTextSize(2, 2);
+        display.setCursor(80, 48);
+        display.print(getDesiredPower());
+        display.print("%");  
     }
 
     // Текущая температура в салоне
-    int showedTemperature = round(getInsideTemperature());
-    if(showedTemperature >= 0) display.print(" ");
+    display.setTextSize(2, 3);
+    int showedTemperature = round(getInsideTemperature());    
+    // Выравнивание по центру экрана
+    int position = 48;
+    if(showedTemperature < 0) position -= 6;
+    if(showedTemperature <= -10) position -= 6;
+    if(showedTemperature >= 10) position -= 6;
+    display.setCursor(position, 12);
     display.print(showedTemperature);
-    display.print("C");
-
-    // Текущая температура приточного воздуха
-    display.setTextSize(2, 2);
-    display.setCursor(80, 0);
-    display.print(round(getOutsideTemperature()));
-    display.print("C");
-
-    // Текущая мощность печки
-    display.setTextSize(2, 2);
-    display.setCursor(80, 16);
-    display.print(getDesiredPower());
-    display.print("%");  
+    display.print("'C");
 }
 
 // Смотрим, в каком состоянии сейчас система и выводим
 // нужный тип информации в зависимости от этого
 void printState()
 {
-    if(needShowRegulatorMode())
+    if(showModeTime != 0)
     {
         // Недавно была смена режима и надо просигнализировать об этом
         printRegulatorMode();
         return;
     }
 
-    if(needShowDesired())
+    if(showDesiredTime != 0)
     {
         // Недавно была смена настроек по температуре, выводим новые настройки
         showDesired();
@@ -162,4 +204,7 @@ void updateDisplay()
     display.clearDisplay();
     printState();
     display.display();
+
+    if(millis() >= showDesiredTime) showDesiredTime = 0;
+    if(millis() >= showModeTime) showModeTime = 0;
 }

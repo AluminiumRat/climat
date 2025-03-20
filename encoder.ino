@@ -1,3 +1,4 @@
+#include "display.hpp"
 #include "encoder.hpp"
 #include "pins.hpp"
 
@@ -28,6 +29,7 @@ void updateEncoder()
         else setDesiredTemperature(getDesiredTemperature() - 1);
     }
 
+    setShowDesired();
     sheduleSaveState();
 }
 
@@ -39,6 +41,7 @@ void onEncoderPressed()
     if(currentTime > lastModeChangeTime + SUPRESSION_INTERVAL || currentTime < lastModeChangeTime)
     {
         changeRegulatorMode();
+        setShowMode();
         lastModeChangeTime = millis();
     }
 }

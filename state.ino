@@ -11,8 +11,6 @@ static RegulatorMode regulatorMode = MODE_POWER;
 static volatile int desiredPower = MIN_POWER;
 static volatile float desiredTemperature = 20;
 
-static volatile unsigned long showDesiredTime = 0;
-static volatile unsigned long showModeTime = 0;
 static volatile unsigned long saveTime = 0;
 
 struct StateDataBlock
@@ -49,9 +47,6 @@ void updateState()
 
         saveTime = 0;
     }
-
-    if(millis() >= showDesiredTime) showDesiredTime = 0;
-    if(millis() >= showModeTime) showModeTime = 0;
 }
 
 void sheduleSaveState()
@@ -75,23 +70,7 @@ void changeRegulatorMode()
         regulatorMode = MODE_POWER;
         desiredPower = desiredPower / 5 * 5;
     }
-    showModeTime = millis() + SHOW_MODE_INTERVAL;
     sheduleSaveState();
-}
-
-bool needShowDesired()
-{
-    return showDesiredTime != 0;
-}
-
-void setShowDesired()
-{
-    showDesiredTime = millis() + SHOW_DESIRED_INTERVAL;
-}
-
-bool needShowRegulatorMode()
-{
-    return showModeTime != 0;
 }
 
 int getDesiredPower()
@@ -101,8 +80,6 @@ int getDesiredPower()
 
 void setDesiredPower(int newValue)
 {
-    setShowDesired();
-
     if(newValue < MIN_POWER) newValue = MIN_POWER;
     if(newValue > MAX_POWER) newValue = MAX_POWER;
 
@@ -116,8 +93,6 @@ int getDesiredTemperature()
 
 void setDesiredTemperature(int newValue)
 {
-    setShowDesired();
-
     if(newValue < MIN_DESIRED_TEMPERATURE) newValue = MIN_DESIRED_TEMPERATURE;
     if(newValue > MAX_DESIRED_TEMPERATURE) newValue = MAX_DESIRED_TEMPERATURE;
 
