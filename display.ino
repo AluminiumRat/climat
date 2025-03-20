@@ -109,7 +109,8 @@ void showDesired()
         if(value >= 10) position -= 9;
         display.setCursor(position, 18);
         display.print(value);
-        display.print("'C");
+        display.print(char(247));
+        display.print("C");
     }
 }
 
@@ -128,7 +129,8 @@ void printCommonInfo()
         {
             display.print("Auto ");
             display.print(getDesiredTemperature());
-            display.print("'C");
+            display.print(char(247));
+            display.print("C");
         }
     }
     else
@@ -137,7 +139,8 @@ void printCommonInfo()
         display.setTextSize(2, 2);
         display.setCursor(0, 48);
         display.print(round(getOutsideTemperature()));
-        display.print("'C");
+        display.print(char(247));
+        display.print("C");
 
         // Текущая мощность печки
         display.setTextSize(2, 2);
@@ -156,7 +159,8 @@ void printCommonInfo()
     if(showedTemperature >= 10) position -= 6;
     display.setCursor(position, 12);
     display.print(showedTemperature);
-    display.print("'C");
+    display.print(char(247));
+    display.print("C");
 }
 
 // Смотрим, в каком состоянии сейчас система и выводим
