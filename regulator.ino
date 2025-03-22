@@ -63,7 +63,7 @@ void updateByOutsideDesiredDelta()
 // и желанной температуры
 void correctByInsideDesiredDelta()
 {
-    float delta = getDesiredTemperature() - getInsideTemperature();
+    float delta = getDesiredTemperature() - getFeltTemperature();
     int deltaPower = MAX_POWER * (delta / PROPORTIONAL_REGULATOR_DIAPASON);
     setDesiredPower(getDesiredPower() + deltaPower);
 }
@@ -72,7 +72,7 @@ void updateRegulator()
 {
     if(getError() != NO_ERROR) return;
     if(getRegulatorMode() != MODE_TEMPERATURE) return;
-    if(getInsideTemperature() == NO_TEMPERATURE) return;
+    if(getFeltTemperature() == NO_TEMPERATURE) return;
     if(getOutsideTemperature() == NO_TEMPERATURE) return;
 
     updateByOutsideDesiredDelta();

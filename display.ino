@@ -55,6 +55,9 @@ void printError()
     case OUTSIDE_TEMPERATURE_SENSOR_ERROR:
         display.print("ERR O_TEM");
         break;
+    case FLOW_TEMPERATURE_SENSOR_ERROR:
+        display.print("ERR F_TEM");
+        break;
     case SERVO_ERROR:
         display.print("ERR SERVO");
         break;
@@ -114,16 +117,18 @@ void showDesired()
     }
 }
 
-// Режим отрисовки, когда нет ошибок и нет никаких изменений настроек
-void printCommonInfo()
+// Строка состояния внизу экрана в обычном режиме работы
+void printStatusBar()
 {
-    // Переключающаяся строка состояния
+    display.setTextSize(2, 2);
+    display.setCursor(0, 48);    
+
+    // Переключение строки состояния по времени
     unsigned long currentTime = millis();
-    if((currentTime / 3000) % 2 == 0)
+    unsigned int step = (currentTime / 3000) % 3;
+    if(step == 0)
     {
         // Индикатор текущего режима
-        display.setTextSize(2, 2);
-        display.setCursor(0, 48);    
         if(getRegulatorMode() == MODE_POWER) display.print("Manual");
         else
         {
@@ -133,25 +138,50 @@ void printCommonInfo()
             display.print("C");
         }
     }
-    else
+    else if (step == 1)
     {
         // Текущая температура приточного воздуха
-        display.setTextSize(2, 2);
-        display.setCursor(0, 48);
         display.print(round(getOutsideTemperature()));
         display.print(char(247));
         display.print("C");
 
         // Текущая мощность печки
-        display.setTextSize(2, 2);
-        display.setCursor(80, 48);
-        display.print(getDesiredPower());
+        // Выравнивание по правой стороне
+        int power = getDesiredPower();
+        int position = 104;
+        if(power >= 10) position -= 12;
+        if(power >= 100) position -= 12;
+        display.setCursor(position, 48);
+        display.print(power);
         display.print("%");  
     }
+    else
+    {
+        // Текущая температура воздуха после печки
+        display.print("f");
+        display.print(round(getFlowTemperature()));
+        display.print("C");
 
-    // Текущая температура в салоне
+        // Температура с салонного датчика
+        // Выравнивание по правой стороне
+        int temperature = round(getInsideTemperature());
+        int position = 92;
+        if(temperature <= 0) position -= 12;
+        if(temperature <= -10) position -= 12;
+        if(temperature >= 10) position -= 12;
+        display.setCursor(position, 48);
+        display.print("i");
+        display.print(temperature);
+        display.print("C");
+    }
+}
+
+// Режим отрисовки, когда нет ошибок и нет никаких изменений настроек
+void printCommonInfo()
+{
+    // Текущая ощущаемая температура в салоне
     display.setTextSize(2, 3);
-    int showedTemperature = round(getInsideTemperature());    
+    int showedTemperature = round(getFeltTemperature());    
     // Выравнивание по центру экрана
     int position = 48;
     if(showedTemperature < 0) position -= 6;
@@ -161,6 +191,8 @@ void printCommonInfo()
     display.print(showedTemperature);
     display.print(char(247));
     display.print("C");
+
+    printStatusBar();
 }
 
 // Смотрим, в каком состоянии сейчас система и выводим
@@ -188,7 +220,7 @@ void printState()
         return;
     }
 
-    if(getInsideTemperature() == NO_TEMPERATURE)
+    if(getFeltTemperature() == NO_TEMPERATURE)
     {
         // В системе нет ошибки, но ещё нет измерений температуры
         // Это начальная инициализация, выведем режим регулирования, раз больше
