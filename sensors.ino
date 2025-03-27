@@ -10,10 +10,10 @@
 
 // Минимальная температура салона, при которой температура воздуха
 // за печкой начинает влиять на ощущаемую температуру
-#define MIN_FLOW_INFLUENCE_TEMPERATURE 10.f
+#define MIN_FLOW_INFLUENCE_TEMPERATURE 13.f
 // Максимальная температура салона, при которой температура салона
 // влияет на ощущаеммую температуру
-#define MAX_INSIDE_INFLUENCE_TEMPERATURE 20.f 
+#define MAX_INSIDE_INFLUENCE_TEMPERATURE 25.f 
 
 static OneWire temperatureSensorsWire(DATA_SENSOR_PIN);
 static DallasTemperature temperatureSensors(&temperatureSensorsWire);
