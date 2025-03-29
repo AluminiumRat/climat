@@ -1,13 +1,10 @@
 #include "error.hpp"
 #include "state.hpp"
 
-// Коэффициент для пропорционального регулирования
-// Если отклонение салонной температуры от желанной меньше этой величины, 
-// то поправка мощности будет пропорциональна отклонению и отскейлина по
-// этой величине.
-// При отклонении более чем на эту величину поправка мощности составит 100%
-// (полностью включена или выключена)
-#define PROPORTIONAL_REGULATOR_DIAPASON 6
+// Коэффициенты PID регулятора
+#define K_P 10.f
+#define K_I 0.f
+#define K_D 0.f
 
 // Таблица, которая определяет зависимость
 // "насколько надо нагреть воздух" -> "Какую мощность печки выставить"
@@ -19,28 +16,61 @@ struct PowerTableRecord
 };
 PowerTableRecord powerTable[] = { {0, 0},
                                   {1, 5},
-                                  {20, 40},
-                                  {40, 100}};
+                                  {40, 50},
+                                  {80, 100}};
 const int powerTableSize = sizeof(powerTable) / sizeof(powerTable[0]);
 
+// Индекс последнего обработанного измерения.
+// По нему пропускаем такты, где нет новых данных
+unsigned int lastMeasureIndex = 0;
+
+// Значение интеграла по ошибке температуры.
+float errorIntegral = 0;
+
+// Ошибка температуры на прошлом шаге регулирования
+float lastError = NO_TEMPERATURE;
+// Целевая температура на предыдущем шаге регулирования
+float lastDesiredTemperature = NO_TEMPERATURE;
+
+void reset()
+{
+    errorIntegral = 0;
+    lastError = NO_TEMPERATURE;
+    lastDesiredTemperature = NO_TEMPERATURE;
+}
+
+// Вычислить температуру, до которой должен нагреваться воздух за отопителем
+float getDesiredFlowTemperature()
+{
+    return getDesiredTemperature();
+
+    float needToAdd = getDesiredTemperature() - getInsideTemperature();
+
+    // Если температура выше или равна цеоевой, то просто поддерживаем
+    // температуру на требуемом уровне
+    if(needToAdd < 0.f) return getDesiredTemperature();
+
+    // Если салонная температура ниже желанной, то на выходе печки поддерживаем
+    // температуру тем выше, чем больше разница между реальной и желанной
+    return getDesiredTemperature() + 3.f * needToAdd;
+}
+
 // Первичное выставление мощности по температуре
-void updateByOutsideDesiredDelta()
+float getPowerByOutsideDesiredDelta(float desiredTemperature)
 {
     // Разница температур приточного воздуха и желанной температуры
-    int delta = getDesiredTemperature() - getOutsideTemperature();
+    int delta = desiredTemperature - getOutsideTemperature();
     
     // Разница температур отрицательная, воздух греть не надо
     if(delta <= powerTable[0].deltaTemp)
     {
-        setDesiredPower(powerTable[0].power);
-        return;
+        return powerTable[0].power;
     }
 
     // Очень большая разница, выставляем мощность на максимум
     if(delta >= powerTable[powerTableSize - 1].deltaTemp)
     {
-        setDesiredPower(powerTable[powerTableSize - 1].power);
-        return;
+        return powerTable[powerTableSize - 1].power;
     }
 
     // Ищем в таблице 2 записи, между которыми находится
@@ -52,29 +82,54 @@ void updateByOutsideDesiredDelta()
     }
 
     // Линейная интерполяция между двумя найденными температурами
-    setDesiredPower(map(delta,
-                        powerTable[i-1].deltaTemp,
-                        powerTable[i].deltaTemp,
-                        powerTable[i-1].power,
-                        powerTable[i].power));
-}
-
-// Дополнительная пропорциональная коррекция по разнице салонной температуры
-// и желанной температуры
-void correctByInsideDesiredDelta()
-{
-    float delta = getDesiredTemperature() - getFeltTemperature();
-    int deltaPower = MAX_POWER * (delta / PROPORTIONAL_REGULATOR_DIAPASON);
-    setDesiredPower(getDesiredPower() + deltaPower);
+    return map( delta,
+                powerTable[i-1].deltaTemp,
+                powerTable[i].deltaTemp,
+                powerTable[i-1].power,
+                powerTable[i].power);
 }
 
 void updateRegulator()
 {
     if(getError() != NO_ERROR) return;
-    if(getRegulatorMode() != MODE_TEMPERATURE) return;
-    if(getFeltTemperature() == NO_TEMPERATURE) return;
-    if(getOutsideTemperature() == NO_TEMPERATURE) return;
 
-    updateByOutsideDesiredDelta();
-    correctByInsideDesiredDelta();
+    if(lastMeasureIndex == getMeasureIndex()) return;
+    lastMeasureIndex = getMeasureIndex();
+
+    if(getRegulatorMode() != MODE_TEMPERATURE)
+    {
+        reset();
+        return;
+    }
+
+    float currentFlowTemperature = getFlowTemperature();
+    if(currentFlowTemperature == NO_TEMPERATURE) return;
+
+    float currentDesiredTemperature = getDesiredFlowTemperature();
+    float temperatureError = currentDesiredTemperature - currentFlowTemperature;
+
+    // Первичное выставление по таблице
+    float newPower = getPowerByOutsideDesiredDelta(currentDesiredTemperature);
+
+    // Пропорциональное регулирование
+    newPower += temperatureError * K_P;
+
+    // Интегральное регулирование
+    errorIntegral *= 0.9f;                  // Ослабляем влияние истории
+    errorIntegral += temperatureError;
+    newPower += errorIntegral * K_I;
+
+    // Дифференциальное интегрирование
+    if(lastError != NO_TEMPERATURE && lastDesiredTemperature != NO_TEMPERATURE)
+    {
+        float dError = temperatureError - lastError;
+        // Защита от изменения целевой температуры
+        dError -= currentDesiredTemperature - lastDesiredTemperature;
+        newPower += dError * K_D;
+    }
+
+    setDesiredPower(round(newPower));
+
+    lastError = temperatureError;
+    lastDesiredTemperature = currentDesiredTemperature;
 }

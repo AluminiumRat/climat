@@ -5,15 +5,7 @@
 #include "pins.hpp"
 #include "sensors.hpp"
 
-// Интервал времени между измерениями температуры. Миллисекунды
-#define TEMPERATURE_MEASURE_TIME 5000
-
-// Минимальная температура салона, при которой температура воздуха
-// за печкой начинает влиять на ощущаемую температуру
-#define MIN_FLOW_INFLUENCE_TEMPERATURE 13.f
-// Максимальная температура салона, при которой температура салона
-// влияет на ощущаеммую температуру
-#define MAX_INSIDE_INFLUENCE_TEMPERATURE 25.f 
+unsigned int measureIndex = 0;
 
 static OneWire temperatureSensorsWire(DATA_SENSOR_PIN);
 static DallasTemperature temperatureSensors(&temperatureSensorsWire);
@@ -30,12 +22,13 @@ float outsideTemperature = NO_TEMPERATURE;
 static DeviceAddress flowThermometer;
 float flowTemperature = NO_TEMPERATURE;
 
-// Ощущаемая температура. Эвристика, вычисленная по результатам
-// измерений. Должна отражать то, что чувствует человек.
-float feltTemperature = NO_TEMPERATURE;
-
 // Время, когда надо будет опрашивать датчики о проделанных измерениях
 static unsigned long temperatureMeasureFinishTime = 0;
+
+unsigned int getMeasureIndex()
+{
+    return measureIndex;
+}
 
 float getInsideTemperature()
 {
@@ -50,11 +43,6 @@ float getOutsideTemperature()
 float getFlowTemperature()
 {
     return flowTemperature;
-}
-
-float getFeltTemperature()
-{
-    return feltTemperature;
 }
 
 void initSensors()
@@ -93,34 +81,6 @@ void initSensors()
     }
 }
 
-void updateFeltTemperature()
-{
-    if(insideTemperature == NO_TEMPERATURE || flowTemperature == NO_TEMPERATURE)
-    {
-        feltTemperature = NO_TEMPERATURE;
-        return;
-    }
-
-    // Ощущаеммая температура получается смешиванием
-    // измеренной салонной температуры и температуры воздуха на
-    // выходе из печки
-    if(insideTemperature < MIN_FLOW_INFLUENCE_TEMPERATURE)
-    {
-        feltTemperature = insideTemperature;
-        return;
-    }
-    if(insideTemperature > MAX_INSIDE_INFLUENCE_TEMPERATURE)
-    {
-        feltTemperature = flowTemperature;
-        return;
-    }
-
-    float mixFactor = insideTemperature - MIN_FLOW_INFLUENCE_TEMPERATURE;
-    mixFactor /= MAX_INSIDE_INFLUENCE_TEMPERATURE - MIN_FLOW_INFLUENCE_TEMPERATURE;
-    feltTemperature = mixFactor * flowTemperature;
-    feltTemperature += (1.f - mixFactor) * insideTemperature;
-}
-
 void updateSensors()
 {
     if(getError() != NO_ERROR) return;
@@ -139,8 +99,7 @@ void updateSensors()
             // Вышло время ожидания. Пора получать результаты измерений
             temperatureMeasureFinishTime = 0;
 
-            insideTemperature =
-                temperatureSensors.getTempC(insideThermometer);
+            insideTemperature = temperatureSensors.getTempC(insideThermometer);
             if(insideTemperature == DEVICE_DISCONNECTED_C)
             {
                 insideTemperature = NO_TEMPERATURE;
@@ -159,8 +118,7 @@ void updateSensors()
                 setError(OUTSIDE_TEMPERATURE_SENSOR_ERROR);
             }
             
-            flowTemperature =
-                temperatureSensors.getTempC(flowThermometer);
+            flowTemperature = temperatureSensors.getTempC(flowThermometer);
             if(flowTemperature == DEVICE_DISCONNECTED_C)
             {
                 insideTemperature = NO_TEMPERATURE;
@@ -168,7 +126,8 @@ void updateSensors()
                 flowTemperature = NO_TEMPERATURE;
                 setError(FLOW_TEMPERATURE_SENSOR_ERROR);
             }                
+
+            measureIndex++;
         }
-        updateFeltTemperature();
     }
 }

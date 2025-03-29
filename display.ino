@@ -153,7 +153,7 @@ void printStatusBar()
         if(power >= 100) position -= 12;
         display.setCursor(position, 48);
         display.print(power);
-        display.print("%");  
+        display.print("%");
     }
     else
     {
@@ -179,9 +179,9 @@ void printStatusBar()
 // Режим отрисовки, когда нет ошибок и нет никаких изменений настроек
 void printCommonInfo()
 {
-    // Текущая ощущаемая температура в салоне
+    // Текущая температура после печки
     display.setTextSize(2, 3);
-    int showedTemperature = round(getFeltTemperature());    
+    int showedTemperature = round(getFlowTemperature());
     // Выравнивание по центру экрана
     int position = 48;
     if(showedTemperature < 0) position -= 6;
@@ -220,7 +220,7 @@ void printState()
         return;
     }
 
-    if(getFeltTemperature() == NO_TEMPERATURE)
+    if(getInsideTemperature() == NO_TEMPERATURE)
     {
         // В системе нет ошибки, но ещё нет измерений температуры
         // Это начальная инициализация, выведем режим регулирования, раз больше
