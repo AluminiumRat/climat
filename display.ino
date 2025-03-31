@@ -179,9 +179,9 @@ void printStatusBar()
 // Режим отрисовки, когда нет ошибок и нет никаких изменений настроек
 void printCommonInfo()
 {
-    // Текущая температура после печки
+    // Текущая температура салона
     display.setTextSize(2, 3);
-    int showedTemperature = round(getFlowTemperature());
+    int showedTemperature = round(getInsideTemperature());
     // Выравнивание по центру экрана
     int position = 48;
     if(showedTemperature < 0) position -= 6;

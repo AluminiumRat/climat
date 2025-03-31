@@ -2,9 +2,9 @@
 #include "state.hpp"
 
 // Коэффициенты PID регулятора
-#define K_P 10.f
-#define K_I 0.f
-#define K_D 0.f
+#define K_P 2.f
+#define K_I 0.15f
+#define K_D 40.f
 
 // Таблица, которая определяет зависимость
 // "насколько надо нагреть воздух" -> "Какую мощность печки выставить"
@@ -15,9 +15,13 @@ struct PowerTableRecord
   int power;        // Какую мощность выставить при этой разницу
 };
 PowerTableRecord powerTable[] = { {0, 0},
-                                  {1, 5},
-                                  {40, 50},
-                                  {80, 100}};
+                                  {1, 15},
+                                  {5, 20},
+                                  {7, 30},
+                                  {30, 40},
+                                  {50, 60},
+                                  {58, 70},
+                                  {62, 80}};
 const int powerTableSize = sizeof(powerTable) / sizeof(powerTable[0]);
 
 // Индекс последнего обработанного измерения.
@@ -31,28 +35,28 @@ float errorIntegral = 0;
 float lastError = NO_TEMPERATURE;
 // Целевая температура на предыдущем шаге регулирования
 float lastDesiredTemperature = NO_TEMPERATURE;
+// Сглаженное значение производной от ошибки
+float avgDError = 0;
 
 void reset()
 {
     errorIntegral = 0;
     lastError = NO_TEMPERATURE;
     lastDesiredTemperature = NO_TEMPERATURE;
+    avgDError = 0;
 }
 
 // Вычислить температуру, до которой должен нагреваться воздух за отопителем
 float getDesiredFlowTemperature()
 {
-    return getDesiredTemperature();
-
+    // На выходе печки поддерживаем температуру тем выше, чем больше разница
+    // между реальной температурой в салоне  и желанной
     float needToAdd = getDesiredTemperature() - getInsideTemperature();
 
-    // Если температура выше или равна цеоевой, то просто поддерживаем
-    // температуру на требуемом уровне
-    if(needToAdd < 0.f) return getDesiredTemperature();
+    // Если салона надо нагревать, то дополнительно усиливаем эффект
+    if(needToAdd > 0) needToAdd *= 2;
 
-    // Если салонная температура ниже желанной, то на выходе печки поддерживаем
-    // температуру тем выше, чем больше разница между реальной и желанной
-    return getDesiredTemperature() + 3.f * needToAdd;
+    return getDesiredTemperature() + needToAdd;
 }
 
 // Первичное выставление мощности по температуре
@@ -115,7 +119,7 @@ void updateRegulator()
     newPower += temperatureError * K_P;
 
     // Интегральное регулирование
-    errorIntegral *= 0.9f;                  // Ослабляем влияние истории
+    errorIntegral *= 0.95f;                  // Ослабляем влияние истории
     errorIntegral += temperatureError;
     newPower += errorIntegral * K_I;
 
@@ -125,7 +129,10 @@ void updateRegulator()
         float dError = temperatureError - lastError;
         // Защита от изменения целевой температуры
         dError -= currentDesiredTemperature - lastDesiredTemperature;
-        newPower += dError * K_D;
+        // Сглаживание dError, чтобы избежать резких бросков
+        avgDError += 0.5f * dError;
+        avgDError /= 1.5f;
+        newPower += avgDError * K_D;
     }
 
     setDesiredPower(round(newPower));
