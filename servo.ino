@@ -6,7 +6,7 @@
 
 // Максимальный и минимальный углы поворота сервомашинки
 #define SERVO_MIN_VALUE 0
-#define SERVO_MAX_VALUE 110
+#define SERVO_MAX_VALUE 105
 
 static Servo valveServo;
 
